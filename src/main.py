@@ -41,7 +41,19 @@ def load_and_explore_data(p_datapath,p_metadatapath):
 
     # What does each column represent (see metadata description)?
     print("What does each column represent (see metadata description)?")
-    print(df_metadata, "\n")
+    #print(df_metadata, "\n") #This had truncation issue
+    
+    # Iterate through each row to create a clean, readable list for the output file
+    for index, row in df_metadata.iterrows():
+        # Use the 'Columns' value as the main header for each entry
+        print(f"Column: {row['Columns']}")
+        
+        # Loop through the remaining 4 columns and print their values underneath
+        for col_name in df_metadata.columns:
+            if col_name != 'Columns': 
+                # str() ensures any empty/NaN values don't break the formatting
+                print(f"  - {col_name}: {str(row[col_name])}")
+        print("") # Adding a blank line between entries for readability
 
     # Are there missing values or inconsistencies?
     print("Are there missing values or inconsistencies?")
@@ -109,7 +121,148 @@ def analyze_cell_line_response(df, cell_col='CELL_LINE_NAME', cancer_col='Cancer
         # Sort by highest standard deviation
         print(drug_patterns.sort_values('std', ascending=False).head(10))
 
+def analyze_genomic_influence(df, metric_col='LN_IC50', features=['CNA', 'Gene Expression', 'Methylation']):
+    """Analyze if genomic, transcriptomic, or epigenomic features influence drug response."""
+    print("\nAre mutations (CNA), gene expression or methylation level influencing drug sensitivity at all?")
+    
+    # Filter to ensure we only try to analyze columns that actually exist in the dataframe
+    existing_features = [col for col in features if col in df.columns]
+    
+    if not existing_features:
+        print("  -> Genomic feature columns not found in the dataset. Skipping analysis.")
+        return
+    if metric_col not in df.columns:
+        print(f"  -> Metric column '{metric_col}' not found. Skipping analysis.")
+        return
 
+    # Create a clean subset dropping rows where these specific values are missing
+    df_subset = df[[metric_col] + existing_features].copy()
+    
+    # Convert 'Y'/'N' indicators to numeric (1/0) so we can calculate correlation
+    # By mapping Y to 1 and N to 0, the Spearman correlation functions perfectly.
+    for col in existing_features:
+        # Replace Y/N with 1/0 (handling both upper and lower case just in case)
+        df_subset[col] = df_subset[col].replace({'Y': 1, 'N': 0, 'y': 1, 'n': 0})
+        # Now safely coerce to numeric (turning any text into NaN)
+        df_subset[col] = pd.to_numeric(df_subset[col], errors='coerce')
+        
+    # Drop any rows that became NaN during the numeric conversion
+    df_clean = df_subset.dropna()
+    
+    print(f"  -> Calculating correlations based on {len(df_clean)} complete records...\n")
+    if len(df_clean) == 0:
+        print("  -> No valid numeric data available for correlation. Check data formatting.")
+        return
+
+    # Calculate the Spearman correlation matrix
+    correlations = df_clean.corr(method='spearman')[metric_col].drop(metric_col)
+
+    print("--- Correlation with Drug Sensitivity (LN_IC50) ---")
+    print("Note: 'Y' (Present) was converted to 1, 'N' (Absent) to 0.")
+    print("A Negative correlation means Presence of feature = LOWER LN_IC50 (Increased Sensitivity).")
+    print("A Positive correlation means Presence of feature = HIGHER LN_IC50 (Increased Resistance).\n")
+    #If a mutation (1) strongly pairs with a lower LN_IC50 score, the correlation will drop into the negatives, accurately telling you that the mutation causes Sensitivity.
+    #If a mutation (1) strongly pairs with a higher LN_IC50 score, the correlation will rise into the positives, accurately telling you that the mutation causes Resistance.
+    for feature, corr_value in correlations.items():
+        # Determine the strength of the correlation for easy reading
+        if abs(corr_value) < 0.2:
+            strength = "Very Weak/None"
+        elif abs(corr_value) < 0.4:
+            strength = "Weak"
+        elif abs(corr_value) < 0.6:
+            strength = "Moderate"
+        else:
+            strength = "Strong"
+            
+        direction = "Resistance" if corr_value > 0 else "Sensitivity"
+        
+        print(f"{feature}: {corr_value:>7.4f} ({strength} correlation towards {direction})")
+        # > (Right-Align): This tells Python to push the number all the way to the right side of the allotted space.
+        # 7 (Total Width): This reserves a minimum width of 7 characters for the number.
+        # .4 (Precision): This forces the number to display exactly 4 digits after the decimal point, rounding if necessary or adding trailing zeros if the number is short.
+        # f (Float): This tells Python to format the value as a floating-point number (a decimal), rather than scientific notation or an integer.
+
+    return correlations
+
+def visualize_results(df, metric_col='LN_IC50', drug_col='DRUG_NAME'):
+    """Generate and save supporting visualizations for the GDSC dataset."""
+    # Create an outputs directory to save our plots automatically
+    output_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "outputs")
+    print(f"\nGenerating Data Visualizations and saving to: {output_dir}")
+    
+    # Check if the primary metric exists
+    if metric_col not in df.columns:
+        print(f"  -> Column '{metric_col}' not found. Cannot generate visualizations.")
+        return
+
+    sns.set_theme(style="whitegrid")
+
+    # ---------------------------------------------------------
+    # 5a) Distribution plots of drug sensitivity
+    # ---------------------------------------------------------
+    print("  -> Saving 1/4: distribution_plot.png...")
+    plt.figure(figsize=(10, 6))
+    sns.histplot(df[metric_col].dropna(), kde=True, bins=50, color='teal')
+    plt.title(f'Distribution of Drug Sensitivity ({metric_col})', fontsize=14, fontweight='bold')
+    plt.xlabel(f'{metric_col} (Lower = More Effective)', fontsize=12)
+    plt.ylabel('Frequency (Number of Cell Lines)', fontsize=12)
+    plt.tight_layout()
+    plt.savefig(os.path.join(output_dir, "distribution_plot.png"), dpi=300) # Save as high-res PNG
+    plt.close() # Close the plot to free up memory
+
+    # ---------------------------------------------------------
+    # 5b) Boxplots comparing drugs 
+    # ---------------------------------------------------------
+    print("  -> Saving 2/4: boxplot_top_drugs.png...")
+    if drug_col in df.columns:
+        plt.figure(figsize=(12, 6))
+        top_10_drugs = df[drug_col].value_counts().head(10).index
+        df_top_drugs = df[df[drug_col].isin(top_10_drugs)]
+        
+        sns.boxplot(data=df_top_drugs, x=drug_col, y=metric_col, palette="Set2")
+        plt.title(f'Drug Sensitivity ({metric_col}) Across Top 10 Most Tested Drugs', fontsize=14, fontweight='bold')
+        plt.xlabel('Drug Name', fontsize=12)
+        plt.ylabel(metric_col, fontsize=12)
+        plt.xticks(rotation=45, ha='right')
+        plt.tight_layout()
+        plt.savefig(os.path.join(output_dir, "boxplot_top_drugs.png"), dpi=300)
+        plt.close()
+    else:
+        print(f"  -> '{drug_col}' not found. Skipping boxplot.")
+
+    # ---------------------------------------------------------
+    # 5c) Scatter plots showing relationships
+    # ---------------------------------------------------------
+    print("  -> Saving 3/4: scatter_auc_ic50.png...")
+    if 'AUC' in df.columns:
+        plt.figure(figsize=(8, 6))
+        sns.scatterplot(data=df, x='AUC', y=metric_col, alpha=0.5, color='darkorange')
+        plt.title('Relationship between AUC and LN_IC50', fontsize=14, fontweight='bold')
+        plt.xlabel('AUC (Area Under the Curve)', fontsize=12)
+        plt.ylabel(metric_col, fontsize=12)
+        plt.tight_layout()
+        plt.savefig(os.path.join(output_dir, "scatter_auc_ic50.png"), dpi=300)
+        plt.close()
+    else:
+         print("  -> 'AUC' column not found. Skipping scatter plot.")
+
+    # ---------------------------------------------------------
+    # 5d) Correlations (Heatmap)
+    # ---------------------------------------------------------
+    print("  -> Saving 4/4: correlation_heatmap.png...")
+    plt.figure(figsize=(10, 8))
+    numeric_df = df.select_dtypes(include=[np.number])
+    
+    if not numeric_df.empty and len(numeric_df.columns) > 1:
+        corr_matrix = numeric_df.corr()
+        sns.heatmap(corr_matrix, annot=True, fmt=".2f", cmap='coolwarm', vmin=-1, vmax=1, 
+                    square=True, linewidths=.5, cbar_kws={"shrink": .8})
+        plt.title('Correlation Heatmap of Numeric Variables', fontsize=14, fontweight='bold')
+        plt.tight_layout()
+        plt.savefig(os.path.join(output_dir, "correlation_heatmap.png"), dpi=300)
+        plt.close()
+    else:
+        print("  -> Not enough numeric columns to generate a correlation heatmap.")
 
 def main():
     print("Welcome to HackBio: GDSC Data Analysis Project!")
@@ -132,8 +285,15 @@ def main():
         print(f"Part 2: Drug Sensitivity patterns completes.\n")
         print(f"Part 3: Cancer cell line analysis starts...\n") 
         analyze_cell_line_response(df, cell_col='CELL_LINE_NAME', cancer_col='Cancer Type (matching TCGA label)', drug_col='DRUG_NAME', metric_col='LN_IC50')
-        print(f"Part 3: Cancer cell line analysis completes.\n") 
-
+        print(f"Part 3: Cancer cell line analysis completes.\n")
+        print(f"Part 4: Genomic influence analysis starts...\n") 
+        analyze_genomic_influence(df, metric_col='LN_IC50', features=['CNA', 'Gene Expression', 'Methylation'])
+        print(f"Part 4: Genomic influence analysis completes.\n")
+        print(f"Part 5: Supporting Data Visualization starts...\n") 
+        visualize_results(df, metric_col='LN_IC50', drug_col='DRUG_NAME')
+        print(f"Part 5: Supporting Data Visualization completes.\n") 
+        
+        print("\n HackBio GDSC Data Analysis Project Complete! ---")
 
 if __name__ == "__main__":
     main()

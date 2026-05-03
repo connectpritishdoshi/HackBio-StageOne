@@ -38,7 +38,7 @@ If you are new to the concepts used in this project, please read our docs first.
 
 Run the main script:
 ```
-python src/main.py
+python .\src\main.py > .\outputs\script_output.txt
 ```
 
 ## Project Structure
