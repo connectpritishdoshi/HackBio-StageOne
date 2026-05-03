@@ -123,6 +123,10 @@ def analyze_cell_line_response(df, cell_col='CELL_LINE_NAME', cancer_col='Cancer
 
 def analyze_genomic_influence(df, metric_col='LN_IC50', features=['CNA', 'Gene Expression', 'Methylation']):
     """Analyze if genomic, transcriptomic, or epigenomic features influence drug response."""
+    
+    # Explicitly opt-in to Pandas 3.0 behavior to silence the replace downcasting warning
+    pd.set_option('future.no_silent_downcasting', True)
+    
     print("\nAre mutations (CNA), gene expression or methylation level influencing drug sensitivity at all?")
     
     # Filter to ensure we only try to analyze columns that actually exist in the dataframe
@@ -139,11 +143,11 @@ def analyze_genomic_influence(df, metric_col='LN_IC50', features=['CNA', 'Gene E
     df_subset = df[[metric_col] + existing_features].copy()
     
     # Convert 'Y'/'N' indicators to numeric (1/0) so we can calculate correlation
-    # By mapping Y to 1 and N to 0, the Spearman correlation functions perfectly.
     for col in existing_features:
-        # Replace Y/N with 1/0 (handling both upper and lower case just in case)
+        # With the global option set, we can safely run replace without warnings
         df_subset[col] = df_subset[col].replace({'Y': 1, 'N': 0, 'y': 1, 'n': 0})
-        # Now safely coerce to numeric (turning any text into NaN)
+        
+        # Now safely coerce to numeric (turning any weird artifacts into NaN)
         df_subset[col] = pd.to_numeric(df_subset[col], errors='coerce')
         
     # Drop any rows that became NaN during the numeric conversion
@@ -211,21 +215,29 @@ def visualize_results(df, metric_col='LN_IC50', drug_col='DRUG_NAME'):
     plt.close() # Close the plot to free up memory
 
     # ---------------------------------------------------------
-    # 5b) Boxplots comparing drugs 
+    # 5b) Boxplots comparing drugs (Based on Lowest Mean LN_IC50)
     # ---------------------------------------------------------
-    print("  -> Saving 2/4: boxplot_top_drugs.png...")
+    print("  -> Saving 2/4: boxplot_top_effective_drugs.png...")
     if drug_col in df.columns:
         plt.figure(figsize=(12, 6))
-        top_10_drugs = df[drug_col].value_counts().head(10).index
-        df_top_drugs = df[df[drug_col].isin(top_10_drugs)]
         
-        sns.boxplot(data=df_top_drugs, x=drug_col, y=metric_col, palette="Set2")
-        plt.title(f'Drug Sensitivity ({metric_col}) Across Top 10 Most Tested Drugs', fontsize=14, fontweight='bold')
+        # 1. Replicate Part 3 exactly: calculate mean/std and drop single-test drugs
+        drug_stats = df.groupby(drug_col)[metric_col].agg(['mean', 'std']).dropna()
+        
+        # 2. Grab the top 10 drugs with the lowest mean (Matches Part 3 output exactly)
+        top_effective_drugs = drug_stats.sort_values('mean').head(10).index
+        
+        # 3. Filter the original dataset for the boxplot
+        df_top_drugs = df[df[drug_col].isin(top_effective_drugs)]
+        
+        # 4. Create the plot
+        sns.boxplot(data=df_top_drugs, x=drug_col, y=metric_col,hue=drug_col, palette="Set2", order=top_effective_drugs,legend=False)
+        plt.title(f'Drug Sensitivity ({metric_col}) Across Top 10 Most Effective Drugs', fontsize=14, fontweight='bold')
         plt.xlabel('Drug Name', fontsize=12)
-        plt.ylabel(metric_col, fontsize=12)
+        plt.ylabel(f'{metric_col} (Lower = More Effective)', fontsize=12)
         plt.xticks(rotation=45, ha='right')
         plt.tight_layout()
-        plt.savefig(os.path.join(output_dir, "boxplot_top_drugs.png"), dpi=300)
+        plt.savefig(os.path.join(output_dir, "boxplot_top_effective_drugs.png"), dpi=300)
         plt.close()
     else:
         print(f"  -> '{drug_col}' not found. Skipping boxplot.")
