@@ -262,19 +262,43 @@ def visualize_results(df, metric_col='LN_IC50', drug_col='DRUG_NAME'):
     # 5d) Correlations (Heatmap)
     # ---------------------------------------------------------
     print("  -> Saving 4/4: correlation_heatmap.png...")
-    plt.figure(figsize=(10, 8))
-    numeric_df = df.select_dtypes(include=[np.number])
     
-    if not numeric_df.empty and len(numeric_df.columns) > 1:
-        corr_matrix = numeric_df.corr()
+    # 1. Define the biological metrics we ACTUALLY want to correlate (Ignore IDs)
+    metrics = ['LN_IC50', 'AUC', 'Z_SCORE']
+    genomic_features = ['CNA', 'Gene Expression', 'Methylation']
+    
+    # 2. Create a temporary dataframe just for the heatmap
+    df_heat = pd.DataFrame()
+    
+    # Safely add our continuous metrics
+    for col in metrics:
+        if col in df.columns:
+            df_heat[col] = df[col]
+            
+    # Safely add and convert our genomic features (Y=1, N=0)
+    for col in genomic_features:
+        if col in df.columns:
+            # Opt-in to future pandas behavior globally for this step if needed, 
+            # or just suppress the warning by mapping and coercing
+            df_heat[col] = df[col].replace({'Y': 1, 'N': 0, 'y': 1, 'n': 0})
+            df_heat[col] = pd.to_numeric(df_heat[col], errors='coerce')
+
+    # 3. Generate the plot
+    plt.figure(figsize=(10, 8))
+    
+    # Ensure we have enough data to actually plot
+    if not df_heat.empty and len(df_heat.columns) > 1:
+        # Using Spearman correlation because genomic features are binary (1/0)
+        corr_matrix = df_heat.corr(method='spearman')
+        
         sns.heatmap(corr_matrix, annot=True, fmt=".2f", cmap='coolwarm', vmin=-1, vmax=1, 
                     square=True, linewidths=.5, cbar_kws={"shrink": .8})
-        plt.title('Correlation Heatmap of Numeric Variables', fontsize=14, fontweight='bold')
+        plt.title('Correlation Heatmap of Biological Variables', fontsize=14, fontweight='bold')
         plt.tight_layout()
         plt.savefig(os.path.join(output_dir, "correlation_heatmap.png"), dpi=300)
         plt.close()
     else:
-        print("  -> Not enough numeric columns to generate a correlation heatmap.")
+        print("  -> Not enough valid biological columns to generate a correlation heatmap.")
 
 def main():
     print("Welcome to HackBio: GDSC Data Analysis Project!")
