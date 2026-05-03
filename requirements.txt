@@ -1,0 +1,16 @@
+# Toolkit for reading and parsing biological data
+biopython
+# Foundational library for numerical and array operations
+numpy
+# Workhorse for data manipulation (DataFrames)
+pandas
+# Industry-standard machine learning library
+scikit-learn
+# Core library for creating visual plots and charts
+matplotlib
+# Statistical data visualization based on matplotlib
+seaborn
+# Advanced statistics and scientific computing
+scipy
+# Background library for reading/writing .xlsx files
+openpyxl
