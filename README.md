@@ -6,10 +6,9 @@ A Python project for bioinformatics tasks.
 
 This project is set up for HackBio, a bioinformatics internship program for stage one submission. It includes essential libraries for bioinformatics, data analysis, and machine learning.
 
-## New to this topic?
-If you are new to the concepts used in this project, please read our docs first.
-- project_overview.md: What is this project about?
-- concepts.md: Core mathematical and scientific concept required in this project.
+## Project Report
+- [project_overview.md](docs/project_overview.md): Full project report — what we did, why, and what it means biologically. **Start here.**
+- [concepts.md](docs/concepts.md): Core mathematical and scientific concepts used in this project.
 
 ## Requirements
 
