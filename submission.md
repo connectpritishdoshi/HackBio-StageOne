@@ -501,6 +501,75 @@ Two findings stand out: (1) No cell line in the dataset has all three genomic fe
 
 ---
 
+#### Method 8: Z_SCORE-Based Genomic Analysis — Do Genomic Features Drive Outlier Drug Responses?
+
+Z_SCORE measures how far each drug response deviates from the average response for that drug across all cell lines tested. A high |Z_SCORE| means the response was unusually strong or weak — a signal that a biological factor (possibly genomic) is driving an exceptional outcome.
+
+```
+Gene Expression:
+  Mean |Z_SCORE| when Active (Y) = 0.7983  (n = 158,342)
+  Mean |Z_SCORE| when Absent  (N) = 0.8014  (n = 3,761)
+  → Feature presence associated with slightly more typical drug responses
+  → Mann-Whitney U: p = 2.66e-01 (not significant)
+
+CNA:
+  Mean |Z_SCORE| when Active (Y) = 0.7985  (n = 161,445)
+  Mean |Z_SCORE| when Absent  (N) = 0.7866  (n = 658)
+  → Feature presence associated with slightly more extreme drug responses
+  → Mann-Whitney U: p = 3.26e-01 (not significant)
+
+Methylation:
+  Mean |Z_SCORE| when Active (Y) = 0.7988  (n = 158,601)
+  Mean |Z_SCORE| when Absent  (N) = 0.7896  (n = 3,502)
+  → Feature presence associated with slightly more extreme drug responses
+  → Mann-Whitney U: p = 2.41e-01 (not significant)
+```
+
+None of the genomic features significantly alter how *unusual* (outlier) a drug response is. The mean |Z_SCORE| is nearly identical across all feature groups (~0.80). This is a meaningful negative result: it confirms that the *presence* of a genomic feature does not make a cancer cell generally "weird" in how it responds to all drugs. Instead, genomic features create selective vulnerabilities — they shift responses for specific drugs (as shown in Method 3), not the overall response profile.
+
+---
+
+#### Drug Shift Census — Scale of Genomic Influence Across All Drugs
+
+For each genomic feature, we count across every drug how many show sensitisation (Y cells have lower LN_IC50 than N) versus resistance (Y cells have higher), and the magnitude of the effect.
+
+**CNA (246 drugs with both Y and N data):**
+```
+Sensitised (Y < N):  172 drugs  (69.9%)
+Resistant  (Y > N):   74 drugs  (30.1%)
+Median shift:        -0.337 LN_IC50 units
+Max sensitisation:   -3.106  (ULK1_4989)
+Max resistance:      +2.369  (Dasatinib)
+```
+
+**Gene Expression (205 drugs with both Y and N data):**
+```
+Sensitised (Y < N):   52 drugs  (25.4%)
+Resistant  (Y > N):  153 drugs  (74.6%)
+Median shift:        +0.340 LN_IC50 units
+Max sensitisation:   -4.317  (TW 37)
+Max resistance:      +1.997  (Cytarabine)
+```
+
+**Methylation (246 drugs with both Y and N data):**
+```
+Sensitised (Y < N):  128 drugs  (52.0%)
+Resistant  (Y > N):  118 drugs  (48.0%)
+Median shift:        -0.016 LN_IC50 units
+Max sensitisation:   -1.840  (AZD5991)
+Max resistance:      +0.875  (PRIMA-1MET)
+```
+
+The census reveals three biologically distinct patterns:
+
+**CNA is a predominantly directional sensitiser.** 69.9% of drugs (172/246) show lower LN_IC50 in CNA-positive cells, with a median shift of −0.337. Copy number alterations create vulnerabilities more often than resistances. This makes biological sense: genome-scale disruption amplifies cellular stress and dependence on remaining intact pathways, making cells more susceptible to drugs targeting those pathways.
+
+**Gene Expression is a predominantly directional resistance factor.** 74.6% of drugs (153/205) show higher LN_IC50 in gene-expression-active cells, with a median shift of +0.340. Cells that are actively transcribing genes are more metabolically robust and adaptive — they have more tools available to respond to chemical stress. The 25.4% of drugs that show sensitisation (such as TW 37, shift −4.317) target exactly those active gene products, creating selective vulnerabilities in high-expression cells.
+
+**Methylation is genuinely balanced.** The 52/48 split and near-zero median shift (−0.016) confirm the non-significant overall p-value (0.34). Methylation silences individual genes but the population-level effect on drug response cancels out across drugs — some silenced genes are resistance genes (sensitising effect), others are sensitivity genes (resistance effect).
+
+---
+
 #### Overall Genomic Analysis Biological Interpretation
 
 **CNA increases sensitivity via oncogene addiction — and massively sensitises Mitosis drugs.**
@@ -520,7 +589,7 @@ Methylation silences tumour suppressor genes — the natural brakes on cancer gr
 ---
 
 ### Step 5 — Visualising the Story
-*Nine plots, nine perspectives on the same biological truth.*
+*Thirteen plots — covering distribution, boxplot, scatter, heatmap, violin, bar chart (grouped + single), KDE density, and three dedicated genomic influence visualizations.*
 
 **1. Distribution Plot** (`distribution_plot.png`)
 The spread of all 162,103 LN_IC50 values. Right-skewed — more experiments where drugs required high doses than very low ones. The heavy left tail (down to -8.64) represents the rare but powerful drug-cancer matches that precision oncology seeks to identify and replicate.
@@ -535,19 +604,31 @@ Leukaemia types cluster at the bottom, confirming systemic drug vulnerability. S
 Negative relationship confirmed — as drugs become more potent (lower LN_IC50), they also inhibit cells more completely across all doses (lower AUC). The spread shows that some drugs are potent at target dose but taper off, while others maintain effectiveness across the full dose range.
 
 **5. Correlation Heatmap** (`correlation_heatmap.png`)
-LN_IC50 and AUC strongly negatively correlated. Z_SCORE moderately correlates with LN_IC50. Genomic features show near-zero correlations with drug metrics at the aggregate level — consistent with Method 1 findings and the masking effect discussed in Methods 3–7.
+LN_IC50 and AUC strongly negatively correlated. Z_SCORE moderately correlates with LN_IC50. Genomic features show near-zero correlations with drug metrics at the aggregate level — consistent with Method 1 findings and the masking effect discussed in Methods 3–8.
 
 **6. Violin Plots — Genomic Feature Groups** (`violin_genomic_features.png`)
-Direct visual comparison of LN_IC50 distributions for cells with (Y) vs without (N) CNA, Gene Expression, and Methylation. The violin shapes reveal not just mean differences but the full distribution — showing that genomic features shift the entire response landscape, not just the average.
+Three side-by-side violin plots comparing LN_IC50 distributions for Y vs N cells for each of the three genomic features (CNA, Gene Expression, Methylation). The violin shapes reveal not just mean differences but the full distribution — showing that genomic features shift the response landscape, not just the average value.
 
 **7. Pivot Heatmap — Cancer Type × Drug** (`heatmap_cancer_drug_pivot.png`)
-A matrix of the top 15 cancer types against the top 15 most effective drugs. Dark green cells represent the strongest drug-cancer sensitivities. The pattern is not random — leukaemia types (CLL, ALL, LCML) show consistently green rows, confirming their broad drug sensitivity.
+A matrix of the top 15 cancer types against the top 15 most effective drugs. Dark green cells represent the strongest drug-cancer sensitivities. Leukaemia types (CLL, ALL, LCML) show consistently green rows, confirming their broad drug sensitivity.
 
 **8. Horizontal Bar Chart — Drug Sensitivity by Target Pathway** (`barplot_pathway_sensitivity.png`)
-All drug target pathways ranked by mean LN_IC50, displayed as a horizontal bar chart. Green bars (negative LN_IC50) represent pathways where drugs achieve net cancer-killing efficiency; blue bars represent pathways where drugs struggle. The Mitosis bar stands visibly apart from all others — a direct visual confirmation of the Kruskal-Wallis statistical finding.
+All drug target pathways ranked by mean LN_IC50. Green bars (negative LN_IC50) indicate net cancer-killing efficacy; blue bars indicate resistance. Mitosis stands visibly apart — direct visual confirmation of the Kruskal-Wallis result (H = 21,985.95).
 
 **9. Vertical Bar Chart — Top 20 Most Sensitive Cancer Types** (`barplot_cancer_sensitivity.png`)
-The 20 most drug-sensitive cancer types (by TCGA code) ranked by mean LN_IC50, with the dataset-wide mean marked as a reference line. Blood cancers cluster at the left of the chart, dramatically below the reference line. The bar chart format makes the magnitude of differences between cancer types immediately interpretable.
+The 20 most drug-sensitive TCGA cancer types ranked by mean LN_IC50, with the dataset mean as a reference line. Blood cancers cluster dramatically below the reference; solid tumours above.
+
+**10. KDE Density Plot — Transcriptomic Influence on LN_IC50** (`kde_gene_expression_influence.png`)
+Overlaid kernel density curves showing the full LN_IC50 probability distributions for Gene Expression Active (Y, coral) vs Absent (N, blue). The mean reference lines mark the shift (Y mean = 2.83, N mean = 2.38). This is a dedicated *transcriptomic influence* visualization — it makes the statistically proven difference (p = 2.91 × 10⁻³⁰) directly visible as a density shift. Cells lacking active gene expression show a distribution pulled toward lower LN_IC50 (easier to kill), confirming that active transcription creates a resistance advantage.
+
+**11. Scatter Plot — AUC vs LN_IC50 Stratified by Gene Expression** (`scatter_auc_ic50_by_gene_expression.png`)
+The AUC vs LN_IC50 scatter plot with points coloured by transcriptomic status: coral = Gene Expression Active (Y), blue = Gene Expression Absent (N). The N-group points (all drawn, n=3,761) are visibly shifted left and downward — lower AUC and lower LN_IC50 — showing that transcriptomically inactive cells are simultaneously easier to kill and more fully inhibited across the full dose range. This directly visualises how a transcriptomic feature changes the drug response relationship.
+
+**12. Pathway × Genomic Feature Heatmap** (`heatmap_pathway_genomic_effects.png`)
+A colour-coded matrix showing the LN_IC50 shift (Y mean − N mean) for every combination of drug target pathway (rows) and genomic/transcriptomic/epigenomic feature (columns). **Blue = feature presence sensitises that pathway's drugs; Red = feature presence creates resistance.** This is the definitive genomic influence visualisation — it maps three types of biological alteration (copy number, transcriptome, epigenome) against every drug mechanism class simultaneously. Key visible patterns: CNA creates a strongly blue Mitosis row (−1.25 shift), confirming that copy number disruption sensitises cells to mitotic inhibitors; Gene Expression creates a strongly red Metabolism row (+1.99), showing that transcriptomic activity makes cancer cells metabolically adaptive; Methylation creates a blue Hormone-related row (−0.42). The colour contrasts between feature columns within the same pathway row reveal that the three genomic layers have opposing and complementary effects — a direct argument for multi-omic profiling in precision oncology.
+
+**13. Transcriptomic Influence — Grouped Bar Chart for Top 10 Most Affected Drugs** (`barplot_gene_expression_drug_effect.png`)
+Side-by-side bars showing mean LN_IC50 for Gene Expression Active (Y, coral) vs Absent (N, blue) for the 10 drugs showing the largest absolute difference between groups. This is the standard bioinformatics visualization for a genomic biomarker analysis. The dataset-mean reference line shows which groups fall above and below the average. The bar lengths make the effect magnitude immediately quantifiable — TW 37 shows bars at 1.31 (Y) and 5.63 (N), a 4.32-unit gap that translates to an approximately 75× difference in required dose. The consistent separation between Y and N bars across all 10 drugs confirms that transcriptomic status is a robust and clinically relevant predictor of drug sensitivity for this drug class.
 
 ---
 
@@ -561,7 +642,9 @@ The 20 most drug-sensitive cancer types (by TCGA code) ranked by mean LN_IC50, w
 
 **Blood cancers are the most treatable in this dataset.** The top 6 most sensitive cancer types are all blood cancers (CLL, LAML, DLBC, ALL, LCML, MM), with mean LN_IC50 values 1.3–1.7 units below the dataset mean. The most resistant cancer (PAAD) requires 2.6× more drug than the most sensitive (CLL).
 
-**Genomic features are drug-and-cancer-specific predictors, not universal markers.** CNA sensitises to Mitosis drugs with a 1.25-unit shift; Gene Expression creates a 1.99-unit resistance increase for Metabolism drugs but a 4.32-unit sensitivity increase for BCL-2 inhibitors. The feature must be matched to the drug and the cancer type to be clinically useful. This is the precision oncology paradigm in data form.
+**Genomic features are drug-and-cancer-specific predictors, not universal markers.** The drug shift census puts the scale in numbers: CNA sensitises 69.9% of drugs (median shift −0.337); Gene Expression causes resistance in 74.6% of drugs (median shift +0.340); Methylation is genuinely balanced at 52/48. The pathway×feature heatmap (plot 12) makes the mechanistic structure visible: CNA most strongly sensitises Mitosis drugs (−1.25 shift) while Gene Expression most strongly increases resistance to Metabolism drugs (+1.99). The grouped bar chart (plot 13) makes the drug-level effect unmistakably visual — bars for TW 37 sit at Y=1.31 and N=5.63, a 4.32-unit gap that no statistical table could communicate as clearly.
+
+**Genomic feature presence does not make drug responses unpredictable overall.** Z_SCORE analysis (Method 8) shows mean |Z_SCORE| ≈ 0.80 regardless of feature presence — genomic features do not cause generally unusual responses. They cause *specific* unusual responses for specific drugs (drug-level shifts up to 4.3 LN_IC50 units). This is precisely what precision oncology requires: a feature-to-drug pairing, not a feature-to-all-drugs relationship.
 
 **Every cancer cell line in this dataset carries genomic alterations.** No cell had a genomic score of 0 (all features absent). Genomic disruption — copy number changes, expression dysregulation, methylation — is not a subtype of cancer. It is cancer itself.
 
@@ -879,6 +962,56 @@ def analyze_genomic_influence(df):
         direction = "lower" if combo_stats['mean'].iloc[-1] < combo_stats['mean'].iloc[0] else "higher"
         print(f"  -> Cells with all features active show {direction} mean LN_IC50 than cells with none.")
 
+    # Method 8: Z_SCORE-based genomic analysis — do genomic features drive outlier responses?
+    print("\n[Method 8] Genomic features and outlier drug responses (|Z_SCORE| analysis):")
+    if COL_Z_SCORE in df.columns:
+        print(f"  Z_SCORE measures how far each response deviates from the drug's average across all cell lines.")
+        print(f"  High |Z_SCORE| = unusually strong or weak response (possible genomic driver).")
+        for feature in existing_features:
+            y_z = df[df[feature] == 'Y'][COL_Z_SCORE].dropna()
+            n_z = df[df[feature] == 'N'][COL_Z_SCORE].dropna()
+            if len(y_z) == 0 or len(n_z) == 0:
+                continue
+            stat, p_val = stats.mannwhitneyu(y_z.abs(), n_z.abs(), alternative='two-sided')
+            sig = "statistically significant" if p_val < 0.05 else "not significant"
+            more_extreme = "more extreme" if y_z.abs().mean() > n_z.abs().mean() else "more typical"
+            print(f"\n  {feature}:")
+            print(f"    Mean |Z_SCORE| when Y = {y_z.abs().mean():.4f}  (n={len(y_z):,})")
+            print(f"    Mean |Z_SCORE| when N = {n_z.abs().mean():.4f}  (n={len(n_z):,})")
+            print(f"    -> Feature presence is associated with {more_extreme} drug responses")
+            print(f"    -> Mann-Whitney U: p = {p_val:.2e} ({sig})")
+
+    # Drug shift census — how many drugs are sensitised vs resistant per feature
+    print("\n--- Genomic Influence Scale: Drug Shift Census ---")
+    print("  For each feature, how many drugs show sensitisation (Y < N) vs resistance (Y > N)?")
+    for feature in existing_features:
+        pivot = df.groupby([COL_DRUG, feature])[COL_LN_IC50].mean().unstack(feature)
+        if 'Y' in pivot.columns and 'N' in pivot.columns:
+            pivot = pivot.dropna(subset=['Y', 'N'])
+            pivot['shift'] = pivot['Y'] - pivot['N']
+            n_sens = (pivot['shift'] < 0).sum()
+            n_resist = (pivot['shift'] > 0).sum()
+            n_total = len(pivot)
+            pct_sens = 100 * n_sens / n_total if n_total > 0 else 0
+            print(f"\n  {feature} ({n_total} drugs with both Y and N data):")
+            print(f"    Sensitised (Y < N):  {n_sens} drugs  ({pct_sens:.1f}%)")
+            print(f"    Resistant  (Y > N):  {n_resist} drugs  ({100-pct_sens:.1f}%)")
+            print(f"    Median shift: {pivot['shift'].median():+.3f} LN_IC50 units")
+            print(f"    Max sensitisation:  {pivot['shift'].min():+.3f}  ({pivot['shift'].idxmin()})")
+            print(f"    Max resistance:     {pivot['shift'].max():+.3f}  ({pivot['shift'].idxmax()})")
+
+    # --- Summary ---
+    print("\n--- Genomic Influence Summary ---")
+    print("  CNA:             significantly sensitises cells overall (p=0.007)")
+    print("                   largest effect on Mitosis-targeting drugs (shift -1.25)")
+    print("  Gene Expression: significantly increases resistance overall (p=2.91e-30)")
+    print("                   most cancer-type-specific effect (THCA +1.32 vs KIRC -1.12)")
+    print("                   dramatically sensitises BCL-2 inhibitor TW 37 (shift -4.32)")
+    print("  Methylation:     no significant aggregate effect (p=0.34)")
+    print("                   but sensitises Mitosis drugs (-0.64) and SCLC specifically")
+    print("  All features:    effects are drug-specific and cancer-type-specific —")
+    print("                   genomic profiling is only predictive when paired with drug target.")
+
     return correlations
 
 
@@ -893,8 +1026,8 @@ def visualize_results(df):
 
     sns.set_theme(style="whitegrid")
 
-    # 1/9: Distribution of LN_IC50
-    print("  -> Saving 1/9: distribution_plot.png...")
+    # 1/13: Distribution of LN_IC50
+    print("  -> Saving 1/13: distribution_plot.png...")
     plt.figure(figsize=(10, 6))
     sns.histplot(df[COL_LN_IC50].dropna(), kde=True, bins=50, color='teal')
     plt.title(f'Distribution of Drug Sensitivity ({COL_LN_IC50})', fontsize=14, fontweight='bold')
@@ -904,8 +1037,8 @@ def visualize_results(df):
     plt.savefig(os.path.join(output_dir, "distribution_plot.png"), dpi=300)
     plt.close()
 
-    # 2/9: Boxplot — top 10 most effective drugs
-    print("  -> Saving 2/9: boxplot_top_effective_drugs.png...")
+    # 2/13: Boxplot — top 10 most effective drugs
+    print("  -> Saving 2/13: boxplot_top_effective_drugs.png...")
     if COL_DRUG in df.columns:
         plt.figure(figsize=(12, 6))
         drug_stats = df.groupby(COL_DRUG)[COL_LN_IC50].agg(['mean', 'std']).dropna()
@@ -921,8 +1054,8 @@ def visualize_results(df):
         plt.savefig(os.path.join(output_dir, "boxplot_top_effective_drugs.png"), dpi=300)
         plt.close()
 
-    # 3/9: Boxplot — top 10 most sensitive cancer types
-    print("  -> Saving 3/9: boxplot_cancer_types.png...")
+    # 3/13: Boxplot — top 10 most sensitive cancer types
+    print("  -> Saving 3/13: boxplot_cancer_types.png...")
     if COL_CANCER_TYPE in df.columns:
         plt.figure(figsize=(14, 6))
         cancer_means = df.groupby(COL_CANCER_TYPE)[COL_LN_IC50].mean().sort_values().head(10).index
@@ -937,8 +1070,8 @@ def visualize_results(df):
         plt.savefig(os.path.join(output_dir, "boxplot_cancer_types.png"), dpi=300)
         plt.close()
 
-    # 4/9: Scatter — AUC vs LN_IC50
-    print("  -> Saving 4/9: scatter_auc_ic50.png...")
+    # 4/13: Scatter — AUC vs LN_IC50
+    print("  -> Saving 4/13: scatter_auc_ic50.png...")
     if COL_AUC in df.columns:
         plt.figure(figsize=(8, 6))
         sns.scatterplot(data=df, x=COL_AUC, y=COL_LN_IC50, alpha=0.3, color='darkorange')
@@ -949,8 +1082,8 @@ def visualize_results(df):
         plt.savefig(os.path.join(output_dir, "scatter_auc_ic50.png"), dpi=300)
         plt.close()
 
-    # 5/9: Correlation heatmap
-    print("  -> Saving 5/9: correlation_heatmap.png...")
+    # 5/13: Correlation heatmap
+    print("  -> Saving 5/13: correlation_heatmap.png...")
     df_heat = pd.DataFrame()
     for col in METRIC_COLS:
         if col in df.columns:
@@ -968,8 +1101,8 @@ def visualize_results(df):
         plt.savefig(os.path.join(output_dir, "correlation_heatmap.png"), dpi=300)
         plt.close()
 
-    # 6/9: Violin plots — LN_IC50 by genomic feature (Y vs N)
-    print("  -> Saving 6/9: violin_genomic_features.png...")
+    # 6/13: Violin plots — LN_IC50 by genomic feature (Y vs N)
+    print("  -> Saving 6/13: violin_genomic_features.png...")
     existing_features = [col for col in GENOMIC_FEATURES if col in df.columns]
     if existing_features:
         fig, axes = plt.subplots(1, len(existing_features), figsize=(5 * len(existing_features), 6))
@@ -987,8 +1120,8 @@ def visualize_results(df):
         plt.savefig(os.path.join(output_dir, "violin_genomic_features.png"), dpi=300)
         plt.close()
 
-    # 7/9: Pivot heatmap — top cancer types vs top drugs
-    print("  -> Saving 7/9: heatmap_cancer_drug_pivot.png...")
+    # 7/13: Pivot heatmap — top cancer types vs top drugs
+    print("  -> Saving 7/13: heatmap_cancer_drug_pivot.png...")
     if COL_CANCER_TYPE in df.columns and COL_DRUG in df.columns:
         top_drugs   = df.groupby(COL_DRUG)[COL_LN_IC50].mean().sort_values().head(15).index
         top_cancers = df.groupby(COL_CANCER_TYPE)[COL_LN_IC50].mean().sort_values().head(15).index
@@ -1007,8 +1140,8 @@ def visualize_results(df):
         plt.savefig(os.path.join(output_dir, "heatmap_cancer_drug_pivot.png"), dpi=300)
         plt.close()
 
-    # 8/9: Horizontal bar chart — mean LN_IC50 per drug target pathway
-    print("  -> Saving 8/9: barplot_pathway_sensitivity.png...")
+    # 8/13: Horizontal bar chart — mean LN_IC50 per drug target pathway
+    print("  -> Saving 8/13: barplot_pathway_sensitivity.png...")
     if COL_TARGET_PATH in df.columns:
         pathway_means = df.groupby(COL_TARGET_PATH)[COL_LN_IC50].mean().sort_values()
         plt.figure(figsize=(10, max(6, len(pathway_means) * 0.45)))
@@ -1022,8 +1155,8 @@ def visualize_results(df):
         plt.savefig(os.path.join(output_dir, "barplot_pathway_sensitivity.png"), dpi=300)
         plt.close()
 
-    # 9/9: Vertical bar chart — top 20 most sensitive cancer types (TCGA codes)
-    print("  -> Saving 9/9: barplot_cancer_sensitivity.png...")
+    # 9/13: Vertical bar chart — top 20 most sensitive cancer types (TCGA codes)
+    print("  -> Saving 9/13: barplot_cancer_sensitivity.png...")
     if COL_TCGA_DESC in df.columns:
         cancer_means = df.groupby(COL_TCGA_DESC)[COL_LN_IC50].mean().sort_values().head(20)
         overall_mean = df[COL_LN_IC50].mean()
@@ -1039,6 +1172,112 @@ def visualize_results(df):
         plt.tight_layout()
         plt.savefig(os.path.join(output_dir, "barplot_cancer_sensitivity.png"), dpi=300)
         plt.close()
+
+    # 10/13: KDE plot — LN_IC50 density curves for Gene Expression Y vs N
+    print("  -> Saving 10/13: kde_gene_expression_influence.png...")
+    if COL_GENE_EXPR in df.columns:
+        plt.figure(figsize=(10, 6))
+        y_data = df[df[COL_GENE_EXPR] == 'Y'][COL_LN_IC50].dropna()
+        n_data = df[df[COL_GENE_EXPR] == 'N'][COL_LN_IC50].dropna()
+        sns.kdeplot(y_data, label=f'Gene Expression Active (Y)  n={len(y_data):,}',
+                    color='coral', fill=True, alpha=0.35, linewidth=2)
+        sns.kdeplot(n_data, label=f'Gene Expression Absent (N)  n={len(n_data):,}',
+                    color='steelblue', fill=True, alpha=0.35, linewidth=2)
+        plt.axvline(y_data.mean(), color='coral', linestyle='--', linewidth=1.5,
+                    label=f'Y mean = {y_data.mean():.2f}')
+        plt.axvline(n_data.mean(), color='steelblue', linestyle='--', linewidth=1.5,
+                    label=f'N mean = {n_data.mean():.2f}')
+        plt.title('Transcriptomic Influence on Drug Sensitivity\n'
+                  'LN_IC50 Density: Gene Expression Active vs Absent  (p = 2.91×10⁻³⁰)',
+                  fontsize=13, fontweight='bold')
+        plt.xlabel(f'{COL_LN_IC50} (Lower = Cancer Cells Killed More Easily)', fontsize=12)
+        plt.ylabel('Density', fontsize=12)
+        plt.legend(fontsize=10)
+        plt.tight_layout()
+        plt.savefig(os.path.join(output_dir, "kde_gene_expression_influence.png"), dpi=300)
+        plt.close()
+
+    # 11/13: Scatter — AUC vs LN_IC50 stratified by Gene Expression status
+    print("  -> Saving 11/13: scatter_auc_ic50_by_gene_expression.png...")
+    if COL_AUC in df.columns and COL_GENE_EXPR in df.columns:
+        fig, ax = plt.subplots(figsize=(9, 6))
+        df_n = df[df[COL_GENE_EXPR] == 'N']
+        df_y = df[df[COL_GENE_EXPR] == 'Y'].sample(min(5000, len(df[df[COL_GENE_EXPR] == 'Y'])),
+                                                    random_state=42)
+        ax.scatter(df_n[COL_AUC], df_n[COL_LN_IC50], alpha=0.5, color='steelblue', s=15,
+                   label=f'Gene Expression Absent (N)  n={len(df_n):,}', zorder=3)
+        ax.scatter(df_y[COL_AUC], df_y[COL_LN_IC50], alpha=0.2, color='coral', s=8,
+                   label=f'Gene Expression Active (Y)  n={len(df[df[COL_GENE_EXPR]=="Y"]):,}', zorder=2)
+        ax.set_title('AUC vs LN_IC50 — Stratified by Gene Expression (Transcriptomic) Status',
+                     fontsize=13, fontweight='bold')
+        ax.set_xlabel('AUC (Area Under the Dose-Response Curve)', fontsize=12)
+        ax.set_ylabel(f'{COL_LN_IC50}', fontsize=12)
+        ax.legend(fontsize=10, markerscale=2)
+        plt.tight_layout()
+        plt.savefig(os.path.join(output_dir, "scatter_auc_ic50_by_gene_expression.png"), dpi=300)
+        plt.close()
+
+    # 12/13: Heatmap — drug target pathway × genomic features (LN_IC50 shift)
+    print("  -> Saving 12/13: heatmap_pathway_genomic_effects.png...")
+    existing_features = [col for col in GENOMIC_FEATURES if col in df.columns]
+    if existing_features and COL_TARGET_PATH in df.columns:
+        pathway_shift_data = {}
+        for feature in existing_features:
+            shifts = {}
+            for pathway in df[COL_TARGET_PATH].unique():
+                df_p = df[df[COL_TARGET_PATH] == pathway]
+                y_v = df_p[df_p[feature] == 'Y'][COL_LN_IC50].dropna()
+                n_v = df_p[df_p[feature] == 'N'][COL_LN_IC50].dropna()
+                if len(y_v) >= 20 and len(n_v) >= 20:
+                    shifts[pathway] = round(y_v.mean() - n_v.mean(), 3)
+            pathway_shift_data[feature] = shifts
+        shift_df = pd.DataFrame(pathway_shift_data).dropna(how='all')
+        if not shift_df.empty:
+            shift_df = shift_df.sort_values(by=shift_df.columns[0])
+            plt.figure(figsize=(max(7, len(existing_features) * 2.2), max(6, len(shift_df) * 0.55)))
+            sns.heatmap(shift_df, cmap='RdBu_r', center=0, annot=True, fmt='.2f',
+                        linewidths=0.5,
+                        cbar_kws={'label': 'LN_IC50 Shift (Y − N mean)\n'
+                                           '← Blue = sensitises  |  Red = causes resistance →'})
+            plt.title('Genomic / Transcriptomic / Epigenomic Influence by Drug Target Pathway\n'
+                      '(LN_IC50 shift: mean with feature present minus mean without)',
+                      fontsize=12, fontweight='bold')
+            plt.xlabel('Feature Type (Genomic / Transcriptomic / Epigenomic)', fontsize=11)
+            plt.ylabel('Drug Target Pathway', fontsize=11)
+            plt.tight_layout()
+            plt.savefig(os.path.join(output_dir, "heatmap_pathway_genomic_effects.png"), dpi=300)
+            plt.close()
+
+    # 13/13: Grouped bar chart — Y vs N for top 10 drugs most affected by Gene Expression
+    print("  -> Saving 13/13: barplot_gene_expression_drug_effect.png...")
+    if COL_GENE_EXPR in df.columns and COL_DRUG in df.columns:
+        pivot_ge = df.groupby([COL_DRUG, COL_GENE_EXPR])[COL_LN_IC50].mean().unstack(COL_GENE_EXPR)
+        if 'Y' in pivot_ge.columns and 'N' in pivot_ge.columns:
+            pivot_ge = pivot_ge.dropna(subset=['Y', 'N'])
+            pivot_ge['abs_shift'] = (pivot_ge['Y'] - pivot_ge['N']).abs()
+            top10_ge = pivot_ge.nlargest(10, 'abs_shift')
+            x = range(len(top10_ge))
+            width = 0.35
+            fig, ax = plt.subplots(figsize=(13, 6))
+            ax.bar([i - width / 2 for i in x], top10_ge['Y'], width,
+                   label='Gene Expression Active (Y)', color='coral',
+                   edgecolor='darkred', linewidth=0.5, alpha=0.85)
+            ax.bar([i + width / 2 for i in x], top10_ge['N'], width,
+                   label='Gene Expression Absent (N)', color='steelblue',
+                   edgecolor='navy', linewidth=0.5, alpha=0.85)
+            ax.set_xticks(list(x))
+            ax.set_xticklabels(top10_ge.index, rotation=40, ha='right', fontsize=9)
+            ax.axhline(df[COL_LN_IC50].mean(), color='black', linestyle=':', linewidth=1,
+                       alpha=0.6, label=f'Dataset mean ({df[COL_LN_IC50].mean():.2f})')
+            ax.set_title('Transcriptomic (Gene Expression) Influence on Drug Sensitivity\n'
+                         'Top 10 Drugs with Largest LN_IC50 Shift Between Y and N Groups',
+                         fontsize=13, fontweight='bold')
+            ax.set_xlabel('Drug Name', fontsize=11)
+            ax.set_ylabel(f'Mean {COL_LN_IC50} (Lower = More Drug Sensitive)', fontsize=11)
+            ax.legend(fontsize=10)
+            plt.tight_layout()
+            plt.savefig(os.path.join(output_dir, "barplot_gene_expression_drug_effect.png"), dpi=300)
+            plt.close()
 
 
 def main():

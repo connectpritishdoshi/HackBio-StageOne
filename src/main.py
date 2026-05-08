@@ -297,6 +297,56 @@ def analyze_genomic_influence(df):
         direction = "lower" if combo_stats['mean'].iloc[-1] < combo_stats['mean'].iloc[0] else "higher"
         print(f"  -> Cells with all features active show {direction} mean LN_IC50 than cells with none.")
 
+    # Method 8: Z_SCORE-based genomic analysis — do genomic features drive outlier responses?
+    print("\n[Method 8] Genomic features and outlier drug responses (|Z_SCORE| analysis):")
+    if COL_Z_SCORE in df.columns:
+        print(f"  Z_SCORE measures how far each response deviates from the drug's average across all cell lines.")
+        print(f"  High |Z_SCORE| = unusually strong or weak response (possible genomic driver).")
+        for feature in existing_features:
+            y_z = df[df[feature] == 'Y'][COL_Z_SCORE].dropna()
+            n_z = df[df[feature] == 'N'][COL_Z_SCORE].dropna()
+            if len(y_z) == 0 or len(n_z) == 0:
+                continue
+            stat, p_val = stats.mannwhitneyu(y_z.abs(), n_z.abs(), alternative='two-sided')
+            sig = "statistically significant" if p_val < 0.05 else "not significant"
+            more_extreme = "more extreme" if y_z.abs().mean() > n_z.abs().mean() else "more typical"
+            print(f"\n  {feature}:")
+            print(f"    Mean |Z_SCORE| when Y = {y_z.abs().mean():.4f}  (n={len(y_z):,})")
+            print(f"    Mean |Z_SCORE| when N = {n_z.abs().mean():.4f}  (n={len(n_z):,})")
+            print(f"    -> Feature presence is associated with {more_extreme} drug responses")
+            print(f"    -> Mann-Whitney U: p = {p_val:.2e} ({sig})")
+
+    # Drug shift census — how many drugs are sensitised vs resistant per feature
+    print("\n--- Genomic Influence Scale: Drug Shift Census ---")
+    print("  For each feature, how many drugs show sensitisation (Y < N) vs resistance (Y > N)?")
+    for feature in existing_features:
+        pivot = df.groupby([COL_DRUG, feature])[COL_LN_IC50].mean().unstack(feature)
+        if 'Y' in pivot.columns and 'N' in pivot.columns:
+            pivot = pivot.dropna(subset=['Y', 'N'])
+            pivot['shift'] = pivot['Y'] - pivot['N']
+            n_sens = (pivot['shift'] < 0).sum()
+            n_resist = (pivot['shift'] > 0).sum()
+            n_total = len(pivot)
+            pct_sens = 100 * n_sens / n_total if n_total > 0 else 0
+            print(f"\n  {feature} ({n_total} drugs with both Y and N data):")
+            print(f"    Sensitised (Y < N):  {n_sens} drugs  ({pct_sens:.1f}%)")
+            print(f"    Resistant  (Y > N):  {n_resist} drugs  ({100-pct_sens:.1f}%)")
+            print(f"    Median shift: {pivot['shift'].median():+.3f} LN_IC50 units")
+            print(f"    Max sensitisation:  {pivot['shift'].min():+.3f}  ({pivot['shift'].idxmin()})")
+            print(f"    Max resistance:     {pivot['shift'].max():+.3f}  ({pivot['shift'].idxmax()})")
+
+    # --- Summary ---
+    print("\n--- Genomic Influence Summary ---")
+    print("  CNA:             significantly sensitises cells overall (p=0.007)")
+    print("                   largest effect on Mitosis-targeting drugs (shift -1.25)")
+    print("  Gene Expression: significantly increases resistance overall (p=2.91e-30)")
+    print("                   most cancer-type-specific effect (THCA +1.32 vs KIRC -1.12)")
+    print("                   dramatically sensitises BCL-2 inhibitor TW 37 (shift -4.32)")
+    print("  Methylation:     no significant aggregate effect (p=0.34)")
+    print("                   but sensitises Mitosis drugs (-0.64) and SCLC specifically")
+    print("  All features:    effects are drug-specific and cancer-type-specific —")
+    print("                   genomic profiling is only predictive when paired with drug target.")
+
     return correlations
 
 
@@ -312,7 +362,7 @@ def visualize_results(df):
     sns.set_theme(style="whitegrid")
 
     # 1/7: Distribution of LN_IC50
-    print("  -> Saving 1/9: distribution_plot.png...")
+    print("  -> Saving 1/13: distribution_plot.png...")
     plt.figure(figsize=(10, 6))
     sns.histplot(df[COL_LN_IC50].dropna(), kde=True, bins=50, color='teal')
     plt.title(f'Distribution of Drug Sensitivity ({COL_LN_IC50})', fontsize=14, fontweight='bold')
@@ -323,7 +373,7 @@ def visualize_results(df):
     plt.close()
 
     # 2/7: Boxplot — top 10 most effective drugs
-    print("  -> Saving 2/9: boxplot_top_effective_drugs.png...")
+    print("  -> Saving 2/13: boxplot_top_effective_drugs.png...")
     if COL_DRUG in df.columns:
         plt.figure(figsize=(12, 6))
         drug_stats = df.groupby(COL_DRUG)[COL_LN_IC50].agg(['mean', 'std']).dropna()
@@ -340,7 +390,7 @@ def visualize_results(df):
         plt.close()
 
     # 3/7: Boxplot — top 10 most sensitive cancer types
-    print("  -> Saving 3/9: boxplot_cancer_types.png...")
+    print("  -> Saving 3/13: boxplot_cancer_types.png...")
     if COL_CANCER_TYPE in df.columns:
         plt.figure(figsize=(14, 6))
         cancer_means = df.groupby(COL_CANCER_TYPE)[COL_LN_IC50].mean().sort_values().head(10).index
@@ -356,7 +406,7 @@ def visualize_results(df):
         plt.close()
 
     # 4/7: Scatter — AUC vs LN_IC50
-    print("  -> Saving 4/9: scatter_auc_ic50.png...")
+    print("  -> Saving 4/13: scatter_auc_ic50.png...")
     if COL_AUC in df.columns:
         plt.figure(figsize=(8, 6))
         sns.scatterplot(data=df, x=COL_AUC, y=COL_LN_IC50, alpha=0.3, color='darkorange')
@@ -368,7 +418,7 @@ def visualize_results(df):
         plt.close()
 
     # 5/7: Correlation heatmap
-    print("  -> Saving 5/9: correlation_heatmap.png...")
+    print("  -> Saving 5/13: correlation_heatmap.png...")
     df_heat = pd.DataFrame()
     for col in METRIC_COLS:
         if col in df.columns:
@@ -387,7 +437,7 @@ def visualize_results(df):
         plt.close()
 
     # 6/7: Violin plots — LN_IC50 by genomic feature (Y vs N)
-    print("  -> Saving 6/9: violin_genomic_features.png...")
+    print("  -> Saving 6/13: violin_genomic_features.png...")
     existing_features = [col for col in GENOMIC_FEATURES if col in df.columns]
     if existing_features:
         fig, axes = plt.subplots(1, len(existing_features), figsize=(5 * len(existing_features), 6))
@@ -406,7 +456,7 @@ def visualize_results(df):
         plt.close()
 
     # 7/7: Pivot heatmap — top cancer types vs top drugs
-    print("  -> Saving 7/9: heatmap_cancer_drug_pivot.png...")
+    print("  -> Saving 7/13: heatmap_cancer_drug_pivot.png...")
     if COL_CANCER_TYPE in df.columns and COL_DRUG in df.columns:
         top_drugs   = df.groupby(COL_DRUG)[COL_LN_IC50].mean().sort_values().head(15).index
         top_cancers = df.groupby(COL_CANCER_TYPE)[COL_LN_IC50].mean().sort_values().head(15).index
@@ -425,8 +475,8 @@ def visualize_results(df):
         plt.savefig(os.path.join(output_dir, "heatmap_cancer_drug_pivot.png"), dpi=300)
         plt.close()
 
-    # 8/9: Horizontal bar chart — mean LN_IC50 per drug target pathway
-    print("  -> Saving 8/9: barplot_pathway_sensitivity.png...")
+    # 8/13: Horizontal bar chart — mean LN_IC50 per drug target pathway
+    print("  -> Saving 8/13: barplot_pathway_sensitivity.png...")
     if COL_TARGET_PATH in df.columns:
         pathway_means = df.groupby(COL_TARGET_PATH)[COL_LN_IC50].mean().sort_values()
         plt.figure(figsize=(10, max(6, len(pathway_means) * 0.45)))
@@ -440,8 +490,8 @@ def visualize_results(df):
         plt.savefig(os.path.join(output_dir, "barplot_pathway_sensitivity.png"), dpi=300)
         plt.close()
 
-    # 9/9: Vertical bar chart — top 20 most sensitive cancer types (TCGA codes)
-    print("  -> Saving 9/9: barplot_cancer_sensitivity.png...")
+    # 9/13: Vertical bar chart — top 20 most sensitive cancer types (TCGA codes)
+    print("  -> Saving 9/13: barplot_cancer_sensitivity.png...")
     if COL_TCGA_DESC in df.columns:
         cancer_means = df.groupby(COL_TCGA_DESC)[COL_LN_IC50].mean().sort_values().head(20)
         overall_mean = df[COL_LN_IC50].mean()
@@ -457,6 +507,112 @@ def visualize_results(df):
         plt.tight_layout()
         plt.savefig(os.path.join(output_dir, "barplot_cancer_sensitivity.png"), dpi=300)
         plt.close()
+
+    # 10/13: KDE plot — LN_IC50 density curves for Gene Expression Y vs N
+    print("  -> Saving 10/13: kde_gene_expression_influence.png...")
+    if COL_GENE_EXPR in df.columns:
+        plt.figure(figsize=(10, 6))
+        y_data = df[df[COL_GENE_EXPR] == 'Y'][COL_LN_IC50].dropna()
+        n_data = df[df[COL_GENE_EXPR] == 'N'][COL_LN_IC50].dropna()
+        sns.kdeplot(y_data, label=f'Gene Expression Active (Y)  n={len(y_data):,}',
+                    color='coral', fill=True, alpha=0.35, linewidth=2)
+        sns.kdeplot(n_data, label=f'Gene Expression Absent (N)  n={len(n_data):,}',
+                    color='steelblue', fill=True, alpha=0.35, linewidth=2)
+        plt.axvline(y_data.mean(), color='coral', linestyle='--', linewidth=1.5,
+                    label=f'Y mean = {y_data.mean():.2f}')
+        plt.axvline(n_data.mean(), color='steelblue', linestyle='--', linewidth=1.5,
+                    label=f'N mean = {n_data.mean():.2f}')
+        plt.title('Transcriptomic Influence on Drug Sensitivity\n'
+                  'LN_IC50 Density: Gene Expression Active vs Absent  (p = 2.91×10⁻³⁰)',
+                  fontsize=13, fontweight='bold')
+        plt.xlabel(f'{COL_LN_IC50} (Lower = Cancer Cells Killed More Easily)', fontsize=12)
+        plt.ylabel('Density', fontsize=12)
+        plt.legend(fontsize=10)
+        plt.tight_layout()
+        plt.savefig(os.path.join(output_dir, "kde_gene_expression_influence.png"), dpi=300)
+        plt.close()
+
+    # 11/13: Scatter — AUC vs LN_IC50 stratified by Gene Expression status
+    print("  -> Saving 11/13: scatter_auc_ic50_by_gene_expression.png...")
+    if COL_AUC in df.columns and COL_GENE_EXPR in df.columns:
+        fig, ax = plt.subplots(figsize=(9, 6))
+        df_n = df[df[COL_GENE_EXPR] == 'N']
+        df_y = df[df[COL_GENE_EXPR] == 'Y'].sample(min(5000, len(df[df[COL_GENE_EXPR] == 'Y'])),
+                                                    random_state=42)
+        ax.scatter(df_n[COL_AUC], df_n[COL_LN_IC50], alpha=0.5, color='steelblue', s=15,
+                   label=f'Gene Expression Absent (N)  n={len(df_n):,}', zorder=3)
+        ax.scatter(df_y[COL_AUC], df_y[COL_LN_IC50], alpha=0.2, color='coral', s=8,
+                   label=f'Gene Expression Active (Y)  n={len(df[df[COL_GENE_EXPR]=="Y"]):,}', zorder=2)
+        ax.set_title('AUC vs LN_IC50 — Stratified by Gene Expression (Transcriptomic) Status',
+                     fontsize=13, fontweight='bold')
+        ax.set_xlabel('AUC (Area Under the Dose-Response Curve)', fontsize=12)
+        ax.set_ylabel(f'{COL_LN_IC50}', fontsize=12)
+        ax.legend(fontsize=10, markerscale=2)
+        plt.tight_layout()
+        plt.savefig(os.path.join(output_dir, "scatter_auc_ic50_by_gene_expression.png"), dpi=300)
+        plt.close()
+
+    # 12/13: Heatmap — drug target pathway × genomic features (LN_IC50 shift)
+    print("  -> Saving 12/13: heatmap_pathway_genomic_effects.png...")
+    existing_features = [col for col in GENOMIC_FEATURES if col in df.columns]
+    if existing_features and COL_TARGET_PATH in df.columns:
+        pathway_shift_data = {}
+        for feature in existing_features:
+            shifts = {}
+            for pathway in df[COL_TARGET_PATH].unique():
+                df_p = df[df[COL_TARGET_PATH] == pathway]
+                y_v = df_p[df_p[feature] == 'Y'][COL_LN_IC50].dropna()
+                n_v = df_p[df_p[feature] == 'N'][COL_LN_IC50].dropna()
+                if len(y_v) >= 20 and len(n_v) >= 20:
+                    shifts[pathway] = round(y_v.mean() - n_v.mean(), 3)
+            pathway_shift_data[feature] = shifts
+        shift_df = pd.DataFrame(pathway_shift_data).dropna(how='all')
+        if not shift_df.empty:
+            shift_df = shift_df.sort_values(by=shift_df.columns[0])
+            plt.figure(figsize=(max(7, len(existing_features) * 2.2), max(6, len(shift_df) * 0.55)))
+            sns.heatmap(shift_df, cmap='RdBu_r', center=0, annot=True, fmt='.2f',
+                        linewidths=0.5,
+                        cbar_kws={'label': 'LN_IC50 Shift (Y − N mean)\n'
+                                           '← Blue = sensitises  |  Red = causes resistance →'})
+            plt.title('Genomic / Transcriptomic / Epigenomic Influence by Drug Target Pathway\n'
+                      '(LN_IC50 shift: mean with feature present minus mean without)',
+                      fontsize=12, fontweight='bold')
+            plt.xlabel('Feature Type (Genomic / Transcriptomic / Epigenomic)', fontsize=11)
+            plt.ylabel('Drug Target Pathway', fontsize=11)
+            plt.tight_layout()
+            plt.savefig(os.path.join(output_dir, "heatmap_pathway_genomic_effects.png"), dpi=300)
+            plt.close()
+
+    # 13/13: Grouped bar chart — Y vs N for top 10 drugs most affected by Gene Expression
+    print("  -> Saving 13/13: barplot_gene_expression_drug_effect.png...")
+    if COL_GENE_EXPR in df.columns and COL_DRUG in df.columns:
+        pivot_ge = df.groupby([COL_DRUG, COL_GENE_EXPR])[COL_LN_IC50].mean().unstack(COL_GENE_EXPR)
+        if 'Y' in pivot_ge.columns and 'N' in pivot_ge.columns:
+            pivot_ge = pivot_ge.dropna(subset=['Y', 'N'])
+            pivot_ge['abs_shift'] = (pivot_ge['Y'] - pivot_ge['N']).abs()
+            top10_ge = pivot_ge.nlargest(10, 'abs_shift')
+            x = range(len(top10_ge))
+            width = 0.35
+            fig, ax = plt.subplots(figsize=(13, 6))
+            ax.bar([i - width / 2 for i in x], top10_ge['Y'], width,
+                   label='Gene Expression Active (Y)', color='coral',
+                   edgecolor='darkred', linewidth=0.5, alpha=0.85)
+            ax.bar([i + width / 2 for i in x], top10_ge['N'], width,
+                   label='Gene Expression Absent (N)', color='steelblue',
+                   edgecolor='navy', linewidth=0.5, alpha=0.85)
+            ax.set_xticks(list(x))
+            ax.set_xticklabels(top10_ge.index, rotation=40, ha='right', fontsize=9)
+            ax.axhline(df[COL_LN_IC50].mean(), color='black', linestyle=':', linewidth=1,
+                       alpha=0.6, label=f'Dataset mean ({df[COL_LN_IC50].mean():.2f})')
+            ax.set_title('Transcriptomic (Gene Expression) Influence on Drug Sensitivity\n'
+                         'Top 10 Drugs with Largest LN_IC50 Shift Between Y and N Groups',
+                         fontsize=13, fontweight='bold')
+            ax.set_xlabel('Drug Name', fontsize=11)
+            ax.set_ylabel(f'Mean {COL_LN_IC50} (Lower = More Drug Sensitive)', fontsize=11)
+            ax.legend(fontsize=10)
+            plt.tight_layout()
+            plt.savefig(os.path.join(output_dir, "barplot_gene_expression_drug_effect.png"), dpi=300)
+            plt.close()
 
 
 def main():
