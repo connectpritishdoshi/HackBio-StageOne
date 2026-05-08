@@ -470,7 +470,7 @@ def visualize_results(df):
     sns.set_theme(style="whitegrid")
 
     # 1/7: Distribution of LN_IC50
-    print("  -> Saving 1/15: distribution_plot.png...")
+    print("  -> Saving 1/16: distribution_plot.png...")
     plt.figure(figsize=(10, 6))
     sns.histplot(df[COL_LN_IC50].dropna(), kde=True, bins=50, color='teal')
     plt.title(f'Distribution of Drug Sensitivity ({COL_LN_IC50})', fontsize=14, fontweight='bold')
@@ -481,7 +481,7 @@ def visualize_results(df):
     plt.close()
 
     # 2/7: Boxplot -- top 10 most effective drugs
-    print("  -> Saving 2/15: boxplot_top_effective_drugs.png...")
+    print("  -> Saving 2/16: boxplot_top_effective_drugs.png...")
     if COL_DRUG in df.columns:
         plt.figure(figsize=(12, 6))
         drug_stats = df.groupby(COL_DRUG)[COL_LN_IC50].agg(['mean', 'std']).dropna()
@@ -498,7 +498,7 @@ def visualize_results(df):
         plt.close()
 
     # 3/7: Boxplot -- top 10 most sensitive cancer types
-    print("  -> Saving 3/15: boxplot_cancer_types.png...")
+    print("  -> Saving 3/16: boxplot_cancer_types.png...")
     if COL_CANCER_TYPE in df.columns:
         plt.figure(figsize=(14, 6))
         cancer_means = df.groupby(COL_CANCER_TYPE)[COL_LN_IC50].mean().sort_values().head(10).index
@@ -514,7 +514,7 @@ def visualize_results(df):
         plt.close()
 
     # 4/7: Scatter -- AUC vs LN_IC50
-    print("  -> Saving 4/15: scatter_auc_ic50.png...")
+    print("  -> Saving 4/16: scatter_auc_ic50.png...")
     if COL_AUC in df.columns:
         plt.figure(figsize=(8, 6))
         sns.scatterplot(data=df, x=COL_AUC, y=COL_LN_IC50, alpha=0.3, color='darkorange')
@@ -526,7 +526,7 @@ def visualize_results(df):
         plt.close()
 
     # 5/7: Correlation heatmap
-    print("  -> Saving 5/15: correlation_heatmap.png...")
+    print("  -> Saving 5/16: correlation_heatmap.png...")
     df_heat = pd.DataFrame()
     for col in METRIC_COLS:
         if col in df.columns:
@@ -547,8 +547,8 @@ def visualize_results(df):
         plt.savefig(os.path.join(output_dir, "correlation_heatmap.png"), dpi=300)
         plt.close()
 
-    # 6/15: Boxplot -- LN_IC50 by genomic/transcriptomic/epigenomic feature (Y vs N)
-    print("  -> Saving 6/15: boxplot_genomic_features.png...")
+    # 6/16: Boxplot -- LN_IC50 by genomic/transcriptomic/epigenomic feature (Y vs N)
+    print("  -> Saving 6/16: boxplot_genomic_features.png...")
     existing_features = [col for col in GENOMIC_FEATURES if col in df.columns]
     if existing_features:
         fig, axes = plt.subplots(1, len(existing_features), figsize=(5 * len(existing_features), 6))
@@ -571,7 +571,7 @@ def visualize_results(df):
         plt.close()
 
     # 7/7: Pivot heatmap -- top cancer types vs top drugs
-    print("  -> Saving 7/15: heatmap_cancer_drug_pivot.png...")
+    print("  -> Saving 7/16: heatmap_cancer_drug_pivot.png...")
     if COL_CANCER_TYPE in df.columns and COL_DRUG in df.columns:
         top_drugs   = df.groupby(COL_DRUG)[COL_LN_IC50].mean().sort_values().head(15).index
         top_cancers = df.groupby(COL_CANCER_TYPE)[COL_LN_IC50].mean().sort_values().head(15).index
@@ -591,7 +591,7 @@ def visualize_results(df):
         plt.close()
 
     # 8/14: Horizontal bar chart -- mean LN_IC50 per drug target pathway
-    print("  -> Saving 8/15: barplot_pathway_sensitivity.png...")
+    print("  -> Saving 8/16: barplot_pathway_sensitivity.png...")
     if COL_TARGET_PATH in df.columns:
         pathway_means = df.groupby(COL_TARGET_PATH)[COL_LN_IC50].mean().sort_values()
         plt.figure(figsize=(10, max(6, len(pathway_means) * 0.45)))
@@ -606,7 +606,7 @@ def visualize_results(df):
         plt.close()
 
     # 9/14: Vertical bar chart -- top 20 most sensitive cancer types (TCGA codes)
-    print("  -> Saving 9/15: barplot_cancer_sensitivity.png...")
+    print("  -> Saving 9/16: barplot_cancer_sensitivity.png...")
     if COL_TCGA_DESC in df.columns:
         cancer_means = df.groupby(COL_TCGA_DESC)[COL_LN_IC50].mean().sort_values().head(20)
         overall_mean = df[COL_LN_IC50].mean()
@@ -624,7 +624,7 @@ def visualize_results(df):
         plt.close()
 
     # 10/14: KDE plot -- LN_IC50 density curves for Gene Expression Y vs N
-    print("  -> Saving 10/15: kde_gene_expression_influence.png...")
+    print("  -> Saving 10/16: kde_gene_expression_influence.png...")
     if COL_GENE_EXPR in df.columns:
         plt.figure(figsize=(10, 6))
         y_data = df[df[COL_GENE_EXPR] == 'Y'][COL_LN_IC50].dropna()
@@ -648,7 +648,7 @@ def visualize_results(df):
         plt.close()
 
     # 11/14: Scatter -- AUC vs LN_IC50 stratified by Gene Expression status
-    print("  -> Saving 11/15: scatter_auc_ic50_by_gene_expression.png...")
+    print("  -> Saving 11/16: scatter_auc_ic50_by_gene_expression.png...")
     if COL_AUC in df.columns and COL_GENE_EXPR in df.columns:
         fig, ax = plt.subplots(figsize=(9, 6))
         df_n = df[df[COL_GENE_EXPR] == 'N']
@@ -668,7 +668,7 @@ def visualize_results(df):
         plt.close()
 
     # 12/14: Heatmap -- drug target pathway Ã-- genomic features (LN_IC50 shift)
-    print("  -> Saving 12/15: heatmap_pathway_genomic_effects.png...")
+    print("  -> Saving 12/16: heatmap_pathway_genomic_effects.png...")
     existing_features = [col for col in GENOMIC_FEATURES if col in df.columns]
     if existing_features and COL_TARGET_PATH in df.columns:
         pathway_shift_data = {}
@@ -699,7 +699,7 @@ def visualize_results(df):
             plt.close()
 
     # 13/14: Grouped bar chart -- Y vs N for top 10 drugs most affected by Gene Expression
-    print("  -> Saving 13/15: barplot_gene_expression_drug_effect.png...")
+    print("  -> Saving 13/16: barplot_gene_expression_drug_effect.png...")
     if COL_GENE_EXPR in df.columns and COL_DRUG in df.columns:
         pivot_ge = df.groupby([COL_DRUG, COL_GENE_EXPR])[COL_LN_IC50].mean().unstack(COL_GENE_EXPR)
         if 'Y' in pivot_ge.columns and 'N' in pivot_ge.columns:
@@ -729,8 +729,8 @@ def visualize_results(df):
             plt.savefig(os.path.join(output_dir, "barplot_gene_expression_drug_effect.png"), dpi=300)
             plt.close()
 
-    # 14/15: Scatter -- drug-level Y vs N LN_IC50 for Gene Expression (biomarker influence plot)
-    print("  -> Saving 14/15: scatter_gene_expression_y_vs_n_drug_level.png...")
+    # 14/16: Scatter -- drug-level Y vs N LN_IC50 for Gene Expression (biomarker influence plot)
+    print("  -> Saving 14/16: scatter_gene_expression_y_vs_n_drug_level.png...")
     if COL_GENE_EXPR in df.columns and COL_DRUG in df.columns:
         pivot_sc = df.groupby([COL_DRUG, COL_GENE_EXPR])[COL_LN_IC50].mean().unstack(COL_GENE_EXPR)
         if 'Y' in pivot_sc.columns and 'N' in pivot_sc.columns:
@@ -763,8 +763,8 @@ def visualize_results(df):
                                      "scatter_gene_expression_y_vs_n_drug_level.png"), dpi=300)
             plt.close()
 
-    # 15/15: Boxplot -- MSI-H vs MSS/MSI-L LN_IC50 (genomic biomarker influence)
-    print("  -> Saving 15/15: boxplot_msi_drug_sensitivity.png...")
+    # 15/16: Boxplot -- MSI-H vs MSS/MSI-L LN_IC50 (genomic biomarker influence)
+    print("  -> Saving 15/16: boxplot_msi_drug_sensitivity.png...")
     if COL_MSI in df.columns:
         df_msi = df[df[COL_MSI].isin(['MSI-H', 'MSS/MSI-L'])].copy()
         if len(df_msi) > 0:
@@ -803,6 +803,60 @@ def visualize_results(df):
             plt.savefig(os.path.join(output_dir, "boxplot_msi_drug_sensitivity.png"),
                         dpi=300, bbox_inches='tight')
             plt.close()
+
+    # 16/16: Volcano plot -- per-drug Spearman r vs -log10(p) for transcriptomic and genomic features
+    print("  -> Saving 16/16: scatter_volcano_genomic_influence.png...")
+    import numpy as np
+    fig, axes = plt.subplots(1, 2, figsize=(16, 7))
+    plot_pairs = [
+        (COL_GENE_EXPR, 'Y', 'N', 'Transcriptomic (Gene Expression)', axes[0]),
+    ]
+    if COL_MSI in df.columns:
+        plot_pairs.append((COL_MSI, 'MSI-H', 'MSS/MSI-L', 'Genomic (MSI Status)', axes[1]))
+
+    for feat, val_pos, val_neg, title, ax in plot_pairs:
+        if feat not in df.columns:
+            continue
+        df_v = df.copy()
+        df_v['feat_num'] = df_v[feat].map({val_pos: 1, val_neg: 0})
+        pts = []
+        for drug in df[COL_DRUG].unique():
+            d = df_v[df_v[COL_DRUG] == drug][['LN_IC50', 'feat_num']].dropna()
+            if len(d) >= 10 and d['feat_num'].nunique() > 1:
+                r, p = stats.spearmanr(d['feat_num'], d['LN_IC50'])
+                pts.append({'Drug': drug, 'r': r, 'neg_log_p': -np.log10(p) if p > 0 else 30})
+        if not pts:
+            continue
+        pt_df = pd.DataFrame(pts)
+        p_thresh = -np.log10(0.05)
+        r_thresh = 0.1
+        sig_pos = pt_df[(pt_df['neg_log_p'] >= p_thresh) & (pt_df['r'] > r_thresh)]
+        sig_neg = pt_df[(pt_df['neg_log_p'] >= p_thresh) & (pt_df['r'] < -r_thresh)]
+        ns = pt_df[~pt_df.index.isin(sig_pos.index) & ~pt_df.index.isin(sig_neg.index)]
+        ax.scatter(ns['r'], ns['neg_log_p'], alpha=0.4, color='lightgray', s=30, label='Not significant')
+        ax.scatter(sig_neg['r'], sig_neg['neg_log_p'], alpha=0.7, color='steelblue', s=50,
+                   label=f'Sensitised (r<-{r_thresh}, p<0.05): {len(sig_neg)}')
+        ax.scatter(sig_pos['r'], sig_pos['neg_log_p'], alpha=0.7, color='coral', s=50,
+                   label=f'Resistant (r>{r_thresh}, p<0.05): {len(sig_pos)}')
+        ax.axhline(p_thresh, color='black', linestyle='--', linewidth=0.8, alpha=0.6)
+        ax.axvline(r_thresh, color='coral', linestyle='--', linewidth=0.8, alpha=0.5)
+        ax.axvline(-r_thresh, color='steelblue', linestyle='--', linewidth=0.8, alpha=0.5)
+        top_drugs = pt_df.nlargest(5, 'neg_log_p')
+        for _, row in top_drugs.iterrows():
+            ax.annotate(row['Drug'][:18], (row['r'], row['neg_log_p']),
+                        fontsize=7, alpha=0.9, xytext=(4, 4), textcoords='offset points')
+        ax.set_title(f'{title}\nPer-Drug Spearman Correlation with LN_IC50',
+                     fontsize=12, fontweight='bold')
+        ax.set_xlabel('Spearman r (feature vs LN_IC50)', fontsize=11)
+        ax.set_ylabel('-log10(p-value)', fontsize=11)
+        ax.legend(fontsize=8, loc='upper left')
+
+    plt.suptitle('Genomic / Transcriptomic Feature Influence on Drug Response\n'
+                 'Volcano Plot: Each point = one drug | Blue = feature sensitises | Coral = feature causes resistance',
+                 fontsize=12, fontweight='bold')
+    plt.tight_layout()
+    plt.savefig(os.path.join(output_dir, "scatter_volcano_genomic_influence.png"), dpi=300)
+    plt.close()
 
 
 def main():
